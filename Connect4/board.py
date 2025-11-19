@@ -49,7 +49,6 @@ class Board:
 # check_winner(player)
 
 # Check all horizontal, vertical, and diagonal sequences of 4 for the player.
-
 # copy()
 
 # Return a deep copy of the board (needed for simulating moves in minimax).
