@@ -1,55 +1,125 @@
-from .heuristic import compute_heuristic
-# from .tree_printer import print_tree_node
+from ai.heuristic import compute_heuristic
+from constants import AI_PLAYER, HUMAN_PLAYER
+from gui.tree_visualizer import visualizer
 
 P_MAIN = 0.6
-P_LEFT = 0.2
-P_RIGHT = 0.2
+P_LEFT_or_RIGHT = 0.4
+
+
 
 def expected_minimax_decision(board, depth):
+ 
+    visualizer.clear()
 
-    #not implemented yet
-    pass
+    best_col = None
+    best_score = float('-inf')
 
-def expected_minimax(board, depth, maximizingPlayer):
-    #not implemented yet
-    # print_tree_node(board, depth)
-    pass
+    root_id = "root"
+    visualizer.add_node(root_id, None, depth, None, None, 'max')
+
+    valid_moves = board.get_valid_moves()
 
 
-# 8. ai/expected_minimax.py
+    for col in valid_moves:
+        node_id = f"move_{col}"
+        
+        visualizer.add_node(node_id, root_id, depth - 1,
+                            None, col, 'min')
 
-# Like minimax, but considers probabilities.
+        expected_score = compute_expected_value(
+            board, col, depth, maximizing=True, parent_id=node_id
+        )
 
-# expected_minimax_decision(board, depth)
+        
+        visualizer.tree_data[node_id]['value'] = expected_score
 
-# Root function.
+        if expected_score > best_score:
+            best_score = expected_score
+            best_col = col
 
-# For each valid move:
+    visualizer.tree_data[root_id]['value'] = best_score
+    visualizer.generate_tree("Expected-Minimax", depth, f"expected_minimax_depth_{depth}")
 
-# Simulate move with probabilities:
+    return best_col
 
-# 0.6 → main column
 
-# 0.2 → left column
+def expected_minimax(board, depth, maximizingPlayer, parent_id=None):
 
-# 0.2 → right column
+    node_id = f"node_{id(board)}_{depth}_{maximizingPlayer}"
+    node_type = "max" if maximizingPlayer else "min"
 
-# Call expected_minimax() on resulting boards.
+   # Check terminal states
+    if board.is_full():
+        ai_fours = board.count_fours(AI_PLAYER)
+        human_fours = board.count_fours(HUMAN_PLAYER)
+        value = (ai_fours - human_fours) * 10000
+        visualizer.add_node(node_id, parent_id, depth, value, None, 'terminal')
+        return value
 
-# Compute expected value = weighted sum.
+    if depth == 0:
+        value = compute_heuristic(board)
+        visualizer.add_node(node_id, parent_id, depth, value, None, node_type)
+        return value
 
-# Return column with maximum expected value.
 
-# expected_minimax(board, depth, maximizingPlayer)
+    valid_moves = board.get_valid_moves()
+  
+    visualizer.add_node(node_id, parent_id, depth, None, None, node_type)
 
-# Recursive:
+    # MAX layer
+    if maximizingPlayer:
+        best_val = float('-inf')
+        for col in valid_moves:
 
-# Print tree node.
+            expected_val = compute_expected_value(
+                board, col, depth, maximizing=True, parent_id=node_id
+            )
 
-# Base case: depth == 0 or terminal → return heuristic
+            best_val = max(best_val, expected_val)
 
-# For each possible move:
+        visualizer.tree_data[node_id]['value'] = best_val
+        return best_val
 
-# Compute expected score = sum(probabilities × minimax of resulting boards)
+    # MIN layer
+    else:
+        best_val = float('inf')
+        for col in valid_moves:
 
-# Return max (if AI) or min (if human).
+            new_board = board.copy()
+            new_board.drop_piece(col, HUMAN_PLAYER)
+            val = expected_minimax(new_board, depth - 1, False, parent_id=node_id)
+            best_val = min(best_val, val)
+
+        visualizer.tree_data[node_id]['value'] = best_val
+        return best_val
+
+
+
+def compute_expected_value(board, col, depth, maximizing, parent_id):
+
+    next_player = AI_PLAYER if maximizing else HUMAN_PLAYER
+
+    outcomes = []
+
+    # MAIN drop (prob 0.6)
+    new_board_main = board.copy()
+    if new_board_main.drop_piece(col, next_player):
+        outcomes.append((P_MAIN, new_board_main))
+
+    # LEFT or RIGHT
+    for i in board.cols:
+        if i == col:
+            continue
+        new_board_right = board.copy()
+        if new_board_right.drop_piece(i, next_player):
+            outcomes.append((P_LEFT_or_RIGHT, new_board_right))
+        
+        
+    # Compute weighted expected score
+    total = 0
+    for p, b in outcomes:
+        child_id = f"p_{id(b)}_{col}_{p}"
+        score = expected_minimax(b, depth - 1, not maximizing, parent_id=child_id)
+        total += p * score
+
+    return total
