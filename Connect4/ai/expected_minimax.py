@@ -1,15 +1,18 @@
 from .heuristic import compute_heuristic
-from .tree_printer import print_tree_node
+# from .tree_printer import print_tree_node
 
 P_MAIN = 0.6
 P_LEFT = 0.2
 P_RIGHT = 0.2
 
 def expected_minimax_decision(board, depth):
+
+    #not implemented yet
     pass
 
 def expected_minimax(board, depth, maximizingPlayer):
-    print_tree_node(board, depth)
+    #not implemented yet
+    # print_tree_node(board, depth)
     pass
 
 

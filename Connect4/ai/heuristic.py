@@ -29,11 +29,6 @@ def evaluate_window(window):
     if human == 2 and empty == 2:
         return -20
     
-    #  (1 + 3 empty)
-    if ai == 1 and empty == 3:
-        return 5
-    if human == 1 and empty == 3:
-        return -5
     
     return 0
 
@@ -44,18 +39,7 @@ def compute_heuristic(board):
     rows, cols, grid = board.rows, board.cols, board.grid
     
     
-    ai_fours = board.count_fours(AI_PLAYER)
-    human_fours = board.count_fours(HUMAN_PLAYER)
-    score += (ai_fours - human_fours) * 500
-    
-    
-    center = cols // 2
-    for row in range(rows):
-        if grid[row][center] == AI_PLAYER:
-            score += 6
-        elif grid[row][center] == HUMAN_PLAYER:
-            score -= 6
-
+    # horizontal
     for row in range(rows):
         for col in range(cols - 3):
             window = [grid[row][col + i] for i in range(4)]

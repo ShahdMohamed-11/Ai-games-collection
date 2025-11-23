@@ -22,38 +22,33 @@ class Board:
         return [col for col in range(self.cols) if self.is_valid_column(col)]
 
     def count_fours(self, player):
-        
         count = 0
         
-        # horizontal
+        # Horizontal
         for row in range(self.rows):
             for col in range(self.cols - 3):
                 if all(self.grid[row][col + i] == player for i in range(4)):
                     count += 1
         
-        # vertical
+        # Vertical
         for row in range(self.rows - 3):
             for col in range(self.cols):
                 if all(self.grid[row + i][col] == player for i in range(4)):
                     count += 1
         
-        # diagonal /
+        # Diagonal /
         for row in range(3, self.rows):
             for col in range(self.cols - 3):
                 if all(self.grid[row - i][col + i] == player for i in range(4)):
                     count += 1
         
-        # diagonal \
+        # Diagonal \
         for row in range(self.rows - 3):
             for col in range(self.cols - 3):
                 if all(self.grid[row + i][col + i] == player for i in range(4)):
                     count += 1
         
         return count
-
-    def check_winner(self, player):
-        """Check if player has at least one 4-in-a-row (used during game for AI)."""
-        return self.count_fours(player) > 0
 
     def is_full(self):
         return all(self.grid[0][col] != EMPTY for col in range(self.cols))

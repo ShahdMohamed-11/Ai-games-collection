@@ -4,9 +4,10 @@ from constants import AI_PLAYER, HUMAN_PLAYER
 
 
 class Game:
-    def __init__(self, rows, cols, depth):
+    def __init__(self, rows, cols, depth, ai_func):
         self.board = Board(rows, cols)
         self.depth = depth
+        self.ai_func = ai_func
         self.game_over = False
         self.winner = None
         self.ai_fours = 0
@@ -15,21 +16,20 @@ class Game:
     def ai_move(self):
         if self.game_over:
             return None
-        col = alphabeta_decision(self.board, self.depth)
+        col = self.ai_func(self.board, self.depth)
         if col is not None:
             self.board.drop_piece(col, AI_PLAYER)
             self._check_game_end()
         return col
 
     def human_move(self, col):
-        if self.game_over or not self.board.is_valid_column(col):
-            return False
-        self.board.drop_piece(col, HUMAN_PLAYER)
-        self._check_game_end()
-        return True
+        if self.game_over:
+            return
+        if self.board.is_valid_column(col):
+            self.board.drop_piece(col, HUMAN_PLAYER)
+            self._check_game_end()
 
     def _check_game_end(self):
-        """Game ends only when board is full. Winner has more 4-in-a-rows."""
         if self.board.is_full():
             self.game_over = True
             self.ai_fours = self.board.count_fours(AI_PLAYER)
@@ -40,7 +40,7 @@ class Game:
             elif self.human_fours > self.ai_fours:
                 self.winner = HUMAN_PLAYER
             else:
-                self.winner = None  # Draw
+                self.winner = None
 
     def is_game_over(self):
         return self.game_over
@@ -49,7 +49,6 @@ class Game:
         return self.winner
 
     def get_scores(self):
-
         return {
             'ai': self.board.count_fours(AI_PLAYER),
             'human': self.board.count_fours(HUMAN_PLAYER)
