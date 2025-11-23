@@ -1,44 +1,82 @@
-def evaluate_window(window, ai_player, human_player):
-    """Evaluate 4-cell window."""
-    pass
+from constants import AI_PLAYER, HUMAN_PLAYER, EMPTY
+
+
+def evaluate_window(window):
+
+    ai = window.count(AI_PLAYER)
+    human = window.count(HUMAN_PLAYER)
+    empty = window.count(EMPTY)
+    
+
+    if ai > 0 and human > 0:
+        return 0
+    
+
+    if ai == 4:
+        return 1000
+    if human == 4:
+        return -1000
+    
+    #  (3 + 1 empty)
+    if ai == 3 and empty == 1:
+        return 100
+    if human == 3 and empty == 1:
+        return -100
+    
+    #  (2 + 2 empty)
+    if ai == 2 and empty == 2:
+        return 20
+    if human == 2 and empty == 2:
+        return -20
+    
+    #  (1 + 3 empty)
+    if ai == 1 and empty == 3:
+        return 5
+    if human == 1 and empty == 3:
+        return -5
+    
+    return 0
+
 
 def compute_heuristic(board):
-    """Return heuristic score for board."""
-    pass
 
+    score = 0
+    rows, cols, grid = board.rows, board.cols, board.grid
+    
+    
+    ai_fours = board.count_fours(AI_PLAYER)
+    human_fours = board.count_fours(HUMAN_PLAYER)
+    score += (ai_fours - human_fours) * 500
+    
+    
+    center = cols // 2
+    for row in range(rows):
+        if grid[row][center] == AI_PLAYER:
+            score += 6
+        elif grid[row][center] == HUMAN_PLAYER:
+            score -= 6
 
-# 4. ai/heuristic.py
-
-# Compute heuristic values for board evaluation.
-
-# evaluate_window(window, ai_player, human_player)
-
-# Input: 4 consecutive cells (window).
-
-# Count how many AI pieces, how many human pieces, and empty spots.
-
-# Assign score:
-
-# High positive if AI is close to winning.
-
-# High negative if human is close to winning.
-
-# Small positive/negative for 2-in-a-row.
-
-# Return numeric score.
-
-# compute_heuristic(board)
-
-# Loop through the entire board.
-
-# Horizontal windows of 4 cells.
-
-# Vertical windows of 4 cells.
-
-# Diagonal windows (both directions).
-
-# For each window, call evaluate_window() → get score.
-
-# Sum all scores → final heuristic for the board.
-
-# Return final score.
+    for row in range(rows):
+        for col in range(cols - 3):
+            window = [grid[row][col + i] for i in range(4)]
+            score += evaluate_window(window)
+    
+    # vertical
+    for row in range(rows - 3):
+        for col in range(cols):
+            window = [grid[row + i][col] for i in range(4)]
+            score += evaluate_window(window)
+    
+    # diagonal /
+    for row in range(3, rows):
+        for col in range(cols - 3):
+            window = [grid[row - i][col + i] for i in range(4)]
+            score += evaluate_window(window)
+    
+    # diagonal \
+    for row in range(rows - 3):
+        for col in range(cols - 3):
+            window = [grid[row + i][col + i] for i in range(4)]
+            score += evaluate_window(window)
+    
+    return score

@@ -1,68 +1,63 @@
-from board import Board
-from ai.minimax import minimax_decision
 from ai.alphabeta import alphabeta_decision
-from ai.expected_minimax import expected_minimax_decision
+from board import Board
+from constants import AI_PLAYER, HUMAN_PLAYER
+
 
 class Game:
-    def __init__(self, rows, cols, depth, algorithm):
+    def __init__(self, rows, cols, depth):
         self.board = Board(rows, cols)
         self.depth = depth
-        self.algorithm = algorithm  # "minimax", "alphabeta", "expected"
+        self.game_over = False
+        self.winner = None
+        self.ai_fours = 0
+        self.human_fours = 0
 
     def ai_move(self):
-        """Choose and perform the AI move based on selected algorithm."""
-        if self.algorithm == "minimax":
-            col = minimax_decision(self.board, self.depth)
-        elif self.algorithm == "alphabeta":
-            col = alphabeta_decision(self.board, self.depth)
-        elif self.algorithm == "expected":
-            col = expected_minimax_decision(self.board, self.depth)
-
-        self.board.drop_piece(col, 1)
+        if self.game_over:
+            return None
+        col = alphabeta_decision(self.board, self.depth)
+        if col is not None:
+            self.board.drop_piece(col, AI_PLAYER)
+            self._check_game_end()
+        return col
 
     def human_move(self, col):
-        """Perform human move."""
-        self.board.drop_piece(col, -1)
+        if self.game_over or not self.board.is_valid_column(col):
+            return False
+        self.board.drop_piece(col, HUMAN_PLAYER)
+        self._check_game_end()
+        return True
+
+    def _check_game_end(self):
+        """Game ends only when board is full. Winner has more 4-in-a-rows."""
+        if self.board.is_full():
+            self.game_over = True
+            self.ai_fours = self.board.count_fours(AI_PLAYER)
+            self.human_fours = self.board.count_fours(HUMAN_PLAYER)
+            
+            if self.ai_fours > self.human_fours:
+                self.winner = AI_PLAYER
+            elif self.human_fours > self.ai_fours:
+                self.winner = HUMAN_PLAYER
+            else:
+                self.winner = None  # Draw
 
     def is_game_over(self):
-        """Check if game ended."""
-        pass
+        return self.game_over
 
+    def get_winner(self):
+        return self.winner
 
-# Game class controls the overall game flow.
+    def get_scores(self):
 
-# __init__
+        return {
+            'ai': self.board.count_fours(AI_PLAYER),
+            'human': self.board.count_fours(HUMAN_PLAYER)
+        }
 
-# Initialize a new Board object.
-
-# Store depth K and algorithm choice.
-
-# Initialize game state (whose turn, game over flag, etc.)
-
-# ai_move()
-
-# Depending on chosen algorithm:
-
-# Call minimax_decision() OR alphabeta_decision() OR expected_minimax_decision() with current board and depth K.
-
-# Drop AI piece in the column returned by the algorithm.
-
-# Update board state.
-
-# Check if AI wins after move.
-
-# Print minimax tree (inside algorithm function).
-
-# human_move(col)
-
-# Drop human piece in chosen column.
-
-# Update board state.
-
-# Check if human wins after move.
-
-# is_game_over()
-
-# Check if board is full OR if either player has won.
-
-# Return True/False.
+    def reset(self):
+        self.board = Board(self.board.rows, self.board.cols)
+        self.game_over = False
+        self.winner = None
+        self.ai_fours = 0
+        self.human_fours = 0
