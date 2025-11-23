@@ -27,7 +27,7 @@ def expected_minimax_decision(board, depth):
                             None, col, 'min')
 
         expected_score = compute_expected_value(
-            board, col, depth, maximizing=True, parent_id=node_id
+            board, col, depth, parent_id=node_id
         )
 
         
@@ -72,7 +72,7 @@ def expected_minimax(board, depth, maximizingPlayer, parent_id=None):
         for col in valid_moves:
 
             expected_val = compute_expected_value(
-                board, col, depth, maximizing=True, parent_id=node_id
+                board, col, depth, parent_id=node_id
             )
 
             best_val = max(best_val, expected_val)
@@ -95,31 +95,29 @@ def expected_minimax(board, depth, maximizingPlayer, parent_id=None):
 
 
 
-def compute_expected_value(board, col, depth, maximizing, parent_id):
-
-    next_player = AI_PLAYER if maximizing else HUMAN_PLAYER
+def compute_expected_value(board, col, depth, parent_id):
 
     outcomes = []
 
     # MAIN drop (prob 0.6)
     new_board_main = board.copy()
-    if new_board_main.drop_piece(col, next_player):
+    if new_board_main.drop_piece(col, AI_PLAYER):
         outcomes.append((P_MAIN, new_board_main))
 
     # LEFT or RIGHT
-    for i in board.cols:
+    for i in range(board.cols):
         if i == col:
             continue
-        new_board_right = board.copy()
-        if new_board_right.drop_piece(i, next_player):
-            outcomes.append((P_LEFT_or_RIGHT, new_board_right))
+        new_board = board.copy()
+        if new_board.drop_piece(i, AI_PLAYER):
+            outcomes.append((P_LEFT_or_RIGHT, new_board))
         
         
     # Compute weighted expected score
     total = 0
     for p, b in outcomes:
         child_id = f"p_{id(b)}_{col}_{p}"
-        score = expected_minimax(b, depth - 1, not maximizing, parent_id=child_id)
+        score = expected_minimax(b, depth - 1, False, parent_id=child_id)
         total += p * score
 
     return total
