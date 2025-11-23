@@ -1,160 +1,158 @@
-# tree_visualizer_graphviz.py
-from graphviz import Digraph
-import tempfile
-import os
+import graphviz
+import threading
+import time
 from pathlib import Path
 
-class GraphvizTreeVisualizer:
+
+class TreeNode:
+    def __init__(self, col, score, depth, is_maximizing, alpha, beta):
+        self.col = col
+        self.score = score
+        self.depth = depth
+        self.is_maximizing = is_maximizing
+        self.alpha = alpha
+        self.beta = beta
+        self.children = []
+        self.parent = None
+        self.pruned = False
+        self.id = None  # Unique identifier for graphviz
+    
+    def add_child(self, child):
+        child.parent = self
+        self.children.append(child)
+
+
+class TreeVisualizer:
     def __init__(self):
-        self.tree_data = {}
+        self.root = None
         self.node_counter = 0
-        self.pruned_counter = 0
-        self.current_graph = None
+        self.output_dir = Path("tree_visualizations")
+        self.output_dir.mkdir(exist_ok=True)
+        self.current_file = None
+        self.update_pending = False
+        self.render_thread = None
         
-    def clear(self):
-        """Clear all tree data"""
-        self.tree_data.clear()
-        self.node_counter = 0
-        self.pruned_counter = 0
-        self.current_graph = None
-    
-    def add_node(self, node_id, parent_id, depth, value, move, player_type, 
-                 is_pruned=False, alpha=None, beta=None):
-        """Add a node to the tree data structure"""
+    def generate_node_id(self):
+        """Generate unique node ID"""
         self.node_counter += 1
-        if is_pruned:
-            self.pruned_counter += 1
-            
-        self.tree_data[node_id] = {
-            'parent': parent_id,
-            'depth': depth,
-            'value': value,
-            'move': move,
-            'player_type': player_type,  # 'max', 'min', or 'terminal'
-            'is_pruned': is_pruned,
-            'alpha': alpha,
-            'beta': beta,
-            'children': []
-        }
-        
-        if parent_id in self.tree_data:
-            self.tree_data[parent_id]['children'].append(node_id)
+        return f"node_{self.node_counter}"
     
-    def _get_node_label(self, node_data):
-        """Generate Graphviz node label"""
-        lines = []
-        
-        # Value line
-        if node_data['value'] is not None:
-            value_str = f"{node_data['value']:.1f}" if isinstance(node_data['value'], float) else f"{node_data['value']}"
-            lines.append(value_str)
-        else:
-            lines.append("0")
-        
-        
-        # Alpha-beta info
-        if node_data['alpha'] is not None and node_data['beta'] is not None:
-            alpha_str = f"α: {node_data['alpha']:.1f}" if isinstance(node_data['alpha'], float) else f"α: {node_data['alpha']}"
-            beta_str = f"β: {node_data['beta']:.1f}" if isinstance(node_data['beta'], float) else f"β: {node_data['beta']}"
-            lines.append(f"{alpha_str}, {beta_str}")
-        
-        
-        return "\\n".join(lines)
+    def assign_ids(self, node):
+        """Recursively assign IDs to all nodes"""
+        if node.id is None:
+            node.id = self.generate_node_id()
+        for child in node.children:
+            self.assign_ids(child)
     
-    def _get_node_style(self, node_data):
-        """Get node style based on node type"""
-        if node_data['is_pruned']:
-            return {
-                'fillcolor': '#ffcccc',
-                'style': 'filled,rounded',
-                'color': 'red',
-                'fontcolor': 'darkred'
-            }
-        elif node_data['player_type'] == 'max':
-            return {
-                'fillcolor': '#cce5ff',
-                'style': 'filled,rounded',
-                'color': 'blue',
-                'fontcolor': 'darkblue'
-            }
-        elif node_data['player_type'] == 'min':
-            return {
-                'fillcolor': '#ffebcc',
-                'style': 'filled,rounded',
-                'color': 'orange',
-                'fontcolor': 'darkorange'
-            }
-        else:  # terminal
-            return {
-                'fillcolor': '#e5ffe5',
-                'style': 'filled,rounded',
-                'color': 'green',
-                'fontcolor': 'darkgreen'
-            }
-    
-    def generate_tree(self, algorithm_name, depth, output_file=None, format='png', view=True):
-        """Generate and render the tree using Graphviz"""
-        if not self.tree_data:
-            print("No tree data to visualize")
+    def create_graph(self):
+        """Create graphviz graph from tree structure"""
+        if self.root is None:
             return None
         
-        # Create Graphviz digraph
-        graph_name = f"{algorithm_name}_tree_depth_{depth}"
-        dot = Digraph(graph_name, comment=f'{algorithm_name} Search Tree')
-        dot.attr(rankdir='TB', size='12,8')
-        dot.attr('node', shape='box', style='rounded', fontname='Arial')
+        # Create directed graph
+        dot = graphviz.Digraph(comment='Alpha-Beta Minimax Tree')
+        dot.attr(rankdir='TB')  # Top to Bottom
+        dot.attr('node', shape='circle', style='filled', fontname='Arial', 
+                 fontsize='12', width='1.2', height='1.2', fixedsize='true')
         dot.attr('edge', fontname='Arial', fontsize='10')
         
-        # Add nodes to graph
-        for node_id, node_data in self.tree_data.items():
-            label = self._get_node_label(node_data)
-            style_attrs = self._get_node_style(node_data)
-            
-            dot.node(node_id, label, **style_attrs)
+        # Assign IDs to nodes
+        self.node_counter = 0
+        self.assign_ids(self.root)
         
-        # Add edges to graph
-        for node_id, node_data in self.tree_data.items():
-            if node_data['parent'] is not None:
-                # Add move label to edge if available
-                edge_label = f"move: {node_data['move']}" if node_data['move'] is not None else ""
-                
-                # Style for pruned edges
-                edge_attrs = {}
-                if node_data['is_pruned']:
-                    edge_attrs = {'color': 'red', 'style': 'dashed'}
-                
-                dot.edge(node_data['parent'], node_id, label=edge_label, **edge_attrs)
+        # Add nodes and edges
+        self._add_nodes_and_edges(dot, self.root)
         
-        # Add title and stats
-        stats_label = f"Algorithm: {algorithm_name}\\nDepth: {depth}\\nTotal Nodes: {self.node_counter}\\nPruned Nodes: {self.pruned_counter}"
-        dot.attr(label=stats_label, labelloc='top', labeljust='left')
+        return dot
+    
+    def _add_nodes_and_edges(self, dot, node):
+        """Recursively add nodes and edges to graph"""
+        # Determine node color
+        if node.pruned:
+            fillcolor = 'lightgray'
+            fontcolor = 'black'
+        elif node.is_maximizing:
+            fillcolor = 'lightblue'
+            fontcolor = 'black'
+        else:
+            fillcolor = 'lightcoral'
+            fontcolor = 'black'
         
-        self.current_graph = dot
+        # Format node label
+        score_text = f"{node.score}" if node.score is not None else "..."
         
-        # Render the graph
-        if output_file is None:
-            output_file = f"{algorithm_name}_tree_depth_{depth}"
+        # Format alpha and beta
+        alpha_str = f"{node.alpha:.1f}" if node.alpha != float('-inf') else "-∞"
+        beta_str = f"{node.beta:.1f}" if node.beta != float('inf') else "∞"
+        
+        label = f"{score_text}\n────\nα:{alpha_str}\nβ:{beta_str}"
+        
+        # Add node
+        dot.node(node.id, label=label, fillcolor=fillcolor, fontcolor=fontcolor)
+        
+        # Add edges to children
+        for child in node.children:
+            edge_color = 'gray' if child.pruned else 'black'
+            edge_style = 'dashed' if child.pruned else 'solid'
+            dot.edge(node.id, child.id, color=edge_color, style=edge_style)
+            self._add_nodes_and_edges(dot, child)
+    
+    def render_tree(self):
+        """Render the tree to a file and open it"""
+        if self.root is None:
+            return
         
         try:
-            output_path = dot.render(
-                filename=output_file,
-                format=format,
-                cleanup=False,  # Keep the source file
-                view=view       # Automatically open the result
-            )
-            print(f"Tree visualization saved to: {output_path}")
-            print(f"Statistics: {self.node_counter} total nodes, {self.pruned_counter} pruned nodes")
-            return output_path
+            dot = self.create_graph()
+            if dot is None:
+                return
+            
+            # Generate filename with timestamp
+            timestamp = time.strftime("%Y%m%d_%H%M%S")
+            filename = f"minimax_tree_{timestamp}"
+            filepath = self.output_dir / filename
+            
+            # Render to PNG and PDF
+            dot.render(filepath, format='png', view=True, cleanup=True)
+            
+            self.current_file = str(filepath) + '.png'
+            print(f"Tree visualization saved to: {self.current_file}")
+            
         except Exception as e:
             print(f"Error rendering tree: {e}")
-            return None
     
-    def save_source(self, filename):
-        """Save the Graphviz source code"""
-        if self.current_graph:
-            with open(filename, 'w') as f:
-                f.write(self.current_graph.source)
-            print(f"Graphviz source saved to: {filename}")
+    def update_display(self):
+        """Queue an update to render the tree"""
+        self.update_pending = True
+    
+    def start_render_loop(self):
+        """Start background thread to render updates"""
+        def render_loop():
+            while True:
+                if self.update_pending:
+                    self.update_pending = False
+                    self.render_tree()
+                time.sleep(0.5)  # Check every 0.5 seconds
+        
+        if self.render_thread is None or not self.render_thread.is_alive():
+            self.render_thread = threading.Thread(target=render_loop, daemon=True)
+            self.render_thread.start()
 
-# Global visualizer instance
-visualizer = GraphvizTreeVisualizer()
+
+# Global instance
+visualizer = TreeVisualizer()
+
+
+def start_visualization():
+    """Start the visualization renderer"""
+    visualizer.start_render_loop()
+    print("\n" + "="*60)
+    print("Alpha-Beta Tree Visualization Started")
+    print("="*60)
+    print("Tree visualizations will be saved to: tree_visualizations/")
+    print("A new window will open automatically showing the tree.")
+    print("Legend:")
+    print("  🔵 Blue nodes = Maximizing (AI)")
+    print("  🔴 Red nodes = Minimizing (Human)")
+    print("  ⚫ Gray nodes = Pruned branches")
+    print("="*60 + "\n")
