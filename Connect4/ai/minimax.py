@@ -1,16 +1,14 @@
 from ai.heuristic import compute_heuristic
 from constants import AI_PLAYER, HUMAN_PLAYER
 from gui.tree_visualizer import visualizer, TreeNode, start_visualization
-
+import time
 
 def minimax_decision(board, depth, visualize=True):
-    """
-    Main entry point for minimax decision making with optional visualization.
-    """
+
     if visualize:
         start_visualization()
         visualizer.root = None
-        print(f"Starting Minimax with depth={depth}")
+
     
     best_col = None
     best_score = float('-inf')
@@ -22,7 +20,7 @@ def minimax_decision(board, depth, visualize=True):
         visualizer.root = root_node
     
     valid_moves = board.get_valid_moves()
-    print(f"Valid moves: {valid_moves}")
+
     
     for col in valid_moves:
         new_board = board.copy()
@@ -40,28 +38,23 @@ def minimax_decision(board, depth, visualize=True):
         if child_node:
             child_node.score = score
         
-        print(f"Move {col} score: {score}")
         
         if score > best_score:
             best_score = score
             best_col = col
     
     root_node.score = best_score
-    print(f"Best move: {best_col} with score: {best_score}")
+    
     
     if visualize:
-        print(f"Tree has {len(root_node.children)} children")
         visualizer.update_display()
-        import time
         time.sleep(1)
     
     return best_col
 
 
 def minimax(board, depth, maximizing_player, parent_node=None, visualize=True):
-    """
-    Minimax algorithm with tree node tracking.
-    """
+
     # Check terminal states
     if board.is_full():
         ai_fours = board.count_fours(AI_PLAYER)

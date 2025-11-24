@@ -16,6 +16,8 @@ class TreeNode:
         self.parent = None
         self.pruned = False
         self.id = None  # Unique identifier for graphviz
+        self.is_chance = False  # For expected minimax chance nodes
+        self.probability = None  # For expected minimax probabilities
     
     def add_child(self, child):
         child.parent = self
@@ -50,10 +52,9 @@ class TreeVisualizer:
             return None
         
         # Create directed graph
-        dot = graphviz.Digraph(comment='Alpha-Beta Minimax Tree')
+        dot = graphviz.Digraph(comment='Minimax Tree')
         dot.attr(rankdir='TB')  # Top to Bottom
-        dot.attr('node', shape='circle', style='filled', fontname='Arial', 
-                 fontsize='12', width='1.2', height='1.2', fixedsize='true')
+        dot.attr('node', fontname='Arial', fontsize='12')
         dot.attr('edge', fontname='Arial', fontsize='10')
         
         # Assign IDs to nodes
@@ -67,34 +68,80 @@ class TreeVisualizer:
     
     def _add_nodes_and_edges(self, dot, node):
         """Recursively add nodes and edges to graph"""
-        # Determine node color
-        if node.pruned:
+        
+        # Determine node shape and color based on type
+        if node.is_chance:
+            # Chance nodes (diamond shape)
+            shape = 'diamond'
+            fillcolor = 'lightyellow'
+            fontcolor = 'black'
+        elif node.pruned:
+            # Pruned nodes
+            shape = 'circle'
             fillcolor = 'lightgray'
             fontcolor = 'black'
+        elif node.is_maximizing is None:
+            # Root or terminal nodes
+            shape = 'circle'
+            fillcolor = 'white'
+            fontcolor = 'black'
         elif node.is_maximizing:
+            # Maximizing nodes
+            shape = 'circle'
             fillcolor = 'lightblue'
             fontcolor = 'black'
         else:
+            # Minimizing nodes
+            shape = 'circle'
             fillcolor = 'lightcoral'
             fontcolor = 'black'
         
-        # Format node label
-        score_text = f"{node.score}" if node.score is not None else "..."
+        # Format node label - handle None scores properly
+        if node.score is None:
+            score_text = "..."
+        elif isinstance(node.score, (int, float)):
+            if isinstance(node.score, float):
+                score_text = f"{node.score:.2f}"
+            else:
+                score_text = str(node.score)
+        else:
+            score_text = str(node.score)
         
-        # Format alpha and beta
-        alpha_str = f"{node.alpha:.1f}" if node.alpha != float('-inf') else "-∞"
-        beta_str = f"{node.beta:.1f}" if node.beta != float('inf') else "∞"
+        if node.is_chance:
+            # Chance node label (simpler)
+            label = f"{node.col}\n{score_text}"
+        elif node.alpha is not None and node.beta is not None:
+            # Alpha-beta node label
+            alpha_str = f"{node.alpha:.1f}" if node.alpha != float('-inf') else "-∞"
+            beta_str = f"{node.beta:.1f}" if node.beta != float('inf') else "∞"
+            label = f"{score_text}\n────\nα:{alpha_str}\nβ:{beta_str}"
+        else:
+            # Simple node label (for minimax without alpha-beta)
+            label = score_text
         
-        label = f"{score_text}\n────\nα:{alpha_str}\nβ:{beta_str}"
-        
-        # Add node
-        dot.node(node.id, label=label, fillcolor=fillcolor, fontcolor=fontcolor)
+        # Add node with appropriate styling
+        dot.node(node.id, label=label, 
+                shape=shape,
+                style='filled', 
+                fillcolor=fillcolor, 
+                fontcolor=fontcolor,
+                width='1.2' if shape == 'circle' else '1.4',
+                height='1.2' if shape == 'circle' else '1.0',
+                fixedsize='true')
         
         # Add edges to children
         for child in node.children:
             edge_color = 'gray' if child.pruned else 'black'
             edge_style = 'dashed' if child.pruned else 'solid'
-            dot.edge(node.id, child.id, color=edge_color, style=edge_style)
+            
+            # Add probability label if it exists
+            if hasattr(child, 'probability') and child.probability is not None:
+                edge_label = f"p={child.probability:.2f}"
+                dot.edge(node.id, child.id, label=edge_label, 
+                        color=edge_color, style=edge_style)
+            else:
+                dot.edge(node.id, child.id, color=edge_color, style=edge_style)
+            
             self._add_nodes_and_edges(dot, child)
     
     def render_tree(self):
@@ -147,12 +194,13 @@ def start_visualization():
     """Start the visualization renderer"""
     visualizer.start_render_loop()
     print("\n" + "="*60)
-    print("Alpha-Beta Tree Visualization Started")
+    print("Minimax Tree Visualization Started")
     print("="*60)
     print("Tree visualizations will be saved to: tree_visualizations/")
     print("A new window will open automatically showing the tree.")
     print("Legend:")
-    print("  🔵 Blue nodes = Maximizing (AI)")
-    print("  🔴 Red nodes = Minimizing (Human)")
-    print("  ⚫ Gray nodes = Pruned branches")
+    print("  🔵 Blue circles = Maximizing (AI)")
+    print("  🔴 Red circles = Minimizing (Human)")
+    print("  🟡 Yellow diamonds = Chance nodes (Expected Minimax)")
+    print("  ⚫ Gray circles = Pruned branches")
     print("="*60 + "\n")

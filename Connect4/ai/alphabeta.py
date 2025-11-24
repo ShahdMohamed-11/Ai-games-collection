@@ -1,12 +1,10 @@
 from ai.heuristic import compute_heuristic
 from constants import AI_PLAYER, HUMAN_PLAYER
 from gui.tree_visualizer import visualizer, TreeNode, start_visualization
-
+import time
 
 def alphabeta_decision(board, depth, visualize=True):
-    """
-    Main entry point for alpha-beta decision making with optional visualization.
-    """
+
     if visualize:
         start_visualization()
         visualizer.root = None
@@ -53,7 +51,6 @@ def alphabeta_decision(board, depth, visualize=True):
     if visualize:
         visualizer.update_display()
         # Give time for final render
-        import time
         time.sleep(1)
     
     return best_col
