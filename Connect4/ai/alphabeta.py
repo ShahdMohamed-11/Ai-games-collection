@@ -1,12 +1,17 @@
 from ai.heuristic import compute_heuristic
 from constants import AI_PLAYER, HUMAN_PLAYER
 from gui.tree_visualizer import visualizer, TreeNode, start_visualization
+from ai.stats_tracker import stats
 
 
 def alphabeta_decision(board, depth, visualize=True):
     """
     Main entry point for alpha-beta decision making with optional visualization.
     """
+    # Reset and start tracking
+    stats.reset()
+    stats.start_timer()
+    
     if visualize:
         start_visualization()
         visualizer.root = None
@@ -50,6 +55,9 @@ def alphabeta_decision(board, depth, visualize=True):
     
     root_node.score = best_score
     
+    # Stop tracking
+    stats.stop_timer()
+    
     if visualize:
         visualizer.update_display()
         # Give time for final render
@@ -60,6 +68,9 @@ def alphabeta_decision(board, depth, visualize=True):
 
 
 def alphabeta(board, depth, alpha, beta, maximizing, parent_node=None, visualize=True):
+    # Increment node count
+    stats.increment_nodes()
+    
     # Check for terminal states
     if board.is_full():
         ai_fours = board.count_fours(AI_PLAYER)
@@ -108,6 +119,10 @@ def alphabeta(board, depth, alpha, beta, maximizing, parent_node=None, visualize
             
             # Check for pruning
             if beta <= alpha:
+                # Count pruned nodes
+                remaining_count = len(valid_moves) - i - 1
+                stats.nodes_pruned += remaining_count
+                
                 # Mark remaining moves as pruned
                 if parent_node and visualize:
                     for remaining_col in valid_moves[i + 1:]:
@@ -149,6 +164,10 @@ def alphabeta(board, depth, alpha, beta, maximizing, parent_node=None, visualize
             
             # Check for pruning
             if beta <= alpha:
+                # Count pruned nodes
+                remaining_count = len(valid_moves) - i - 1
+                stats.nodes_pruned += remaining_count
+                
                 # Mark remaining moves as pruned
                 if parent_node and visualize:
                     for remaining_col in valid_moves[i + 1:]:
