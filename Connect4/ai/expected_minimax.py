@@ -107,12 +107,12 @@ def compute_expected_value(board, col, depth, maximizing, parent_id):
         outcomes.append((P_MAIN, new_board_main))
 
     # LEFT or RIGHT
-    for i in board.cols:
+    for i in range(board.cols):
         if i == col:
             continue
-        new_board_right = board.copy()
-        if new_board_right.drop_piece(i, next_player):
-            outcomes.append((P_LEFT_or_RIGHT, new_board_right))
+        new_board = board.copy()
+        if new_board.drop_piece(i, next_player):
+            outcomes.append((P_LEFT_or_RIGHT, new_board))
         
         
     # Compute weighted expected score
