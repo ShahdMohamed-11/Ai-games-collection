@@ -54,19 +54,6 @@ def ac3(domains, neighbors):
     return True
 
 
-# def revise(Xi, Xj, domains):
-#     revised = False
-#     to_remove = []
-#     for v in list(domains[Xi]): 
-#         if not any(v != w for w in domains[Xj]):
-#             to_remove.append(v)
-            
-#     if to_remove:
-#         for v in to_remove:
-#             domains[Xi].remove(v)
-#         revised = True
-#     return revised
-
 
 def revise(Xi, Xj, domains):
 

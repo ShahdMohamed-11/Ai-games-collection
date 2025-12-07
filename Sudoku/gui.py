@@ -126,7 +126,43 @@ class SudokuSolverGUI:
                     cell.config(state="readonly")
     
     def generate_puzzle(self):
-        """Generate random solvable puzzle"""
+        """Generate random solvable puzzle with user-defined difficulty"""
+        # Ask user for difficulty (number of empty cells)
+        difficulty_window = tk.Toplevel(self.root)
+        difficulty_window.title("Set Puzzle Difficulty")
+        difficulty_window.geometry("300x150")
+        difficulty_window.transient(self.root)
+        difficulty_window.grab_set()
+        
+        tk.Label(difficulty_window, text="Number of empty cells (1-81):",
+                font=("Arial", 11)).pack(pady=10)
+        
+        difficulty_var = tk.StringVar(value="50")
+        entry = tk.Entry(difficulty_window, textvariable=difficulty_var, font=("Arial", 12), width=10)
+        entry.pack(pady=5)
+        entry.focus()
+        
+        def confirm_difficulty():
+            try:
+                difficulty = int(difficulty_var.get())
+                if difficulty < 1 or difficulty > 81:
+                    messagebox.showerror("Invalid", "Please enter a number between 1 and 81")
+                    return
+                difficulty_window.destroy()
+                self._generate_puzzle_with_difficulty(difficulty)
+            except ValueError:
+                messagebox.showerror("Invalid", "Please enter a valid number")
+        
+        def on_enter(event):
+            confirm_difficulty()
+        
+        entry.bind("<Return>", on_enter)
+        
+        tk.Button(difficulty_window, text="Generate", command=confirm_difficulty,
+                 font=("Arial", 11)).pack(pady=10)
+    
+    def _generate_puzzle_with_difficulty(self, difficulty):
+        """Generate puzzle with specified difficulty"""
         self.clear_board()
         
         # Fill diagonal boxes first (independent - no conflicts)
@@ -144,13 +180,12 @@ class SudokuSolverGUI:
         backtracking_solver_fc(self.board, domains, neighbors)
         
         # Remove cells randomly (create puzzle)
-        difficulty = 50
         cells_to_remove = random.sample([(r, c) for r in range(9) for c in range(9)], difficulty)
         for r, c in cells_to_remove:
             self.board[r][c] = 0
         
         self.update_display()
-        self.status_label.config(text="Random puzzle generated!", fg="green")
+        self.status_label.config(text=f"Random puzzle generated! ({difficulty} empty cells)", fg="green")
     
     def solve_with_visualization(self):
         """Solve puzzle with AC-3 + Backtracking + Forward Checking"""
@@ -177,10 +212,9 @@ class SudokuSolverGUI:
                 self.ac3_runs.append(list(new_steps))
                 print(f"Total AC-3 runs so far: {len(self.ac3_runs)}")
         
-            # if not success:
-            #     result = backtracking_solver_fc(self.board, domains, neighbors, callback=self._update_callback)
-            #     # messagebox.showerror("Error", "Puzzle is unsolvable!")
-            #     # return
+            if not success:
+                messagebox.showerror("Error", "Puzzle is unsolvable!")
+                return
         
             # Update board from AC-3
             flag = update_board_with_domains(self.board, domains)
