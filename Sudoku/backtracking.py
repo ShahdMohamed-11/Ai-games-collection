@@ -6,36 +6,36 @@ import time
 def backtracking_solver_fc(board, domains, neighbors, callback=None):
 
     empty = find_empty_mrv_fc(domains, board)
-    
     if empty is None:
-
         return True
-    
+
     row, col = empty
     cell = (row, col)
-    
 
     for value in lcv_order(cell, domains, neighbors):
-        if value in domains[cell]:
+        if value not in domains[cell]:
+            continue
 
-            board[row][col] = value
-            saved_domains = copy.deepcopy(domains)
-            domains[cell] = {value}
-            
+        # try value
+        board[row][col] = value
+        saved_domains = copy.deepcopy(domains)
+        domains[cell] = {value}
 
-            if forward_check(cell, value, domains, neighbors):
+        if forward_check(cell, value, domains, neighbors):
+            if callback:
+                # Commit this single assignment, visualize it, and return
+                callback(board)
+                return True
 
-                if callback:
-                    callback(board)
-                
-                if backtracking_solver_fc(board, domains, neighbors, callback):
-                    return True
-            
-  
-            board[row][col] = 0
-            domains.clear()
-            domains.update(saved_domains)
-    
+            # No callback => continue full recursive search
+            if backtracking_solver_fc(board, domains, neighbors, callback):
+                return True
+
+        # undo and try next value
+        board[row][col] = 0
+        domains.clear()
+        domains.update(saved_domains)
+
     return False
 
 

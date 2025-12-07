@@ -22,8 +22,8 @@ class SudokuSolverGUI:
         self.board = [[0] * 9 for _ in range(9)]
         self.cells = [[None] * 9 for _ in range(9)]
         
-        # AC-3 tracking for visualization
-        self.ac3_steps = []
+        # AC-3 tracking for visualization: store a list of runs (each run is a list of steps)
+        self.ac3_runs = []
         self.solution_time = 0
         
         self.setup_gui()
@@ -144,7 +144,7 @@ class SudokuSolverGUI:
         backtracking_solver_fc(self.board, domains, neighbors)
         
         # Remove cells randomly (create puzzle)
-        difficulty = 40
+        difficulty = 60
         cells_to_remove = random.sample([(r, c) for r in range(9) for c in range(9)], difficulty)
         for r, c in cells_to_remove:
             self.board[r][c] = 0
@@ -155,7 +155,6 @@ class SudokuSolverGUI:
     def solve_with_visualization(self):
         """Solve puzzle with AC-3 + Backtracking + Forward Checking"""
         self.read_board_from_gui()
-        self.ac3_steps = []
         start_time = time.time()
         
         # Build CSP
@@ -165,28 +164,44 @@ class SudokuSolverGUI:
         self.status_label.config(text="Running AC-3...", fg="blue")
         self.root.update()
         
-        success, self.ac3_steps = ac3_with_tracking(domains, neighbors)
-        
-        if not success:
-            messagebox.showerror("Error", "Puzzle is unsolvable!")
-            return
-        
-        # Update board from AC-3
-        update_board_with_domains(self.board, domains)
-        self.update_display()
-        self.root.update()
-        time.sleep(0.5)
-        
-        # Backtracking with Forward Checking if incomplete
-        if not is_complete(self.board):
-            self.status_label.config(text="AC-3 done. Running Backtracking + FC...", fg="blue")
+        while not is_complete(self.board):
+            
+            self.status_label.config(text="Entered Arc", fg="blue")
             self.root.update()
-            backtracking_solver_fc(self.board, domains, neighbors, callback=self._update_callback)
+            time.sleep(0.5)
+            # Run AC-3 and append the new tracking steps as a separate run
+            success, new_steps = ac3_with_tracking(domains, neighbors)
+            if new_steps:
+                # keep each AC-3 invocation as a separate entry (so runs are separated)
+                self.ac3_runs.append(list(new_steps))
+        
+            # if not success:
+            #     result = backtracking_solver_fc(self.board, domains, neighbors, callback=self._update_callback)
+            #     # messagebox.showerror("Error", "Puzzle is unsolvable!")
+            #     # return
+        
+            # Update board from AC-3
+            flag = update_board_with_domains(self.board, domains)
+            
+            if(flag == False):
+                print("Entered backtracking")
+                self.status_label.config(text="AC-3 done. Running Backtracking + FC...", fg="red")
+                self.root.update()
+                time.sleep(0.5)
+                result = backtracking_solver_fc(self.board, domains, neighbors, callback=self._update_callback)
+                if not result:
+                    messagebox.showerror("Error", "Puzzle is unsolvable!")
+                    return
+                
+            self.update_display()
+            self.root.update()
+
         
         self.solution_time = time.time() - start_time
         self.update_display()
+        total_ac3_steps = sum(len(run) for run in self.ac3_runs)
         self.status_label.config(
-            text=f"Solved in {self.solution_time:.3f}s! AC-3 steps: {len(self.ac3_steps)}",
+            text=f"Solved in {self.solution_time:.3f}s! AC-3 steps: {total_ac3_steps}",
             fg="green"
         )
     
@@ -225,6 +240,8 @@ class SudokuSolverGUI:
     def clear_board(self):
         """Clear the board"""
         self.board = [[0] * 9 for _ in range(9)]
+        # Reset AC-3 history when board is cleared / new board created
+        self.ac3_runs = []
         for r in range(9):
             for c in range(9):
                 self.cells[r][c].delete(0, tk.END)
@@ -233,7 +250,7 @@ class SudokuSolverGUI:
     
     def show_ac3_steps(self):
         """Display AC-3 constraint propagation steps"""
-        if not self.ac3_steps:
+        if not self.ac3_runs:
             messagebox.showinfo("Info", "No AC-3 steps recorded. Solve a puzzle first!")
             return
         
@@ -248,18 +265,29 @@ class SudokuSolverGUI:
         scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
         text.config(yscrollcommand=scrollbar.set)
         
-        text.insert(tk.END, f"Total AC-3 revisions: {len(self.ac3_steps)}\n")
+        total_steps = sum(len(run) for run in self.ac3_runs)
+        text.insert(tk.END, f"Total AC-3 revisions: {total_steps}\n")
         text.insert(tk.END, "=" * 50 + "\n\n")
-        
-        for i, step in enumerate(self.ac3_steps[:100]):
-            xi, xj = step['arc']
-            domain = step['domain_Xi']
-            text.insert(tk.END, f"Step {i+1}:\n")
-            text.insert(tk.END, f"  Arc: {xi} -> {xj}\n")
-            text.insert(tk.END, f"  Domain reduced to: {sorted(domain)}\n\n")
-        
-        if len(self.ac3_steps) > 100:
-            text.insert(tk.END, f"... and {len(self.ac3_steps) - 100} more steps\n")
+        # Display runs separately so each AC-3 invocation is distinct
+        shown = 0
+        for run_idx, run in enumerate(self.ac3_runs, start=1):
+            text.insert(tk.END, f"--- AC-3 Run {run_idx}: {len(run)} revisions ---\n")
+            for step in run:
+                if shown >= 100:
+                    break
+                xi, xj = step['arc']
+                intial_domain = step['initial_domain_Xi']
+                domain = step['domain_Xi']
+                shown += 1
+                text.insert(tk.END, f"Run {run_idx} - Revision {shown}:\n")
+                text.insert(tk.END, f"  Arc: {xi} -> {xj}\n")
+                text.insert(tk.END, f"  Intial Domain : {sorted(intial_domain)}\n")
+                text.insert(tk.END, f"  Domain reduced to: {sorted(domain)}\n\n")
+            if shown >= 100:
+                break
+
+        if total_steps > 100:
+            text.insert(tk.END, f"... and {total_steps - 100} more steps\n")
         
         text.config(state=tk.DISABLED)
 

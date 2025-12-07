@@ -14,11 +14,12 @@ def ac3_with_tracking(domains, neighbors):
     
     while queue:
         Xi, Xj = queue.popleft()
-        
+        intial_domain_Xi = domains[Xi].copy()
         if revise(Xi, Xj, domains):
             ac3_steps.append({
                 'arc': (Xi, Xj),
                 'domain_Xi': domains[Xi].copy(),
+                'initial_domain_Xi': intial_domain_Xi,
                 'action': 'revised'
             })
             
@@ -76,7 +77,10 @@ def revise(Xi, Xj, domains):
 
 
 def update_board_with_domains(board, domains):
-
+    flag = False
     for (r, c), domain in domains.items():
         if len(domain) == 1 and board[r][c] == 0:
             board[r][c] = next(iter(domain))
+            flag = True
+            
+    return flag
