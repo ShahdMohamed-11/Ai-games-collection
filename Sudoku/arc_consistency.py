@@ -36,26 +36,36 @@ def ac3_with_tracking(domains, neighbors):
 
 
 def ac3(domains, neighbors):
-
+    
     queue = deque()
 
     for Xi in domains.keys():
         for Xj in neighbors[Xi]:
             queue.append((Xi, Xj))
-    
+
     while queue:
         Xi, Xj = queue.popleft()
-        
         if revise(Xi, Xj, domains):
-            
             if len(domains[Xi]) == 0:
                 return False
-            
             for Xk in neighbors[Xi]:
                 if Xk != Xj:
                     queue.append((Xk, Xi))
-    
     return True
+
+
+# def revise(Xi, Xj, domains):
+#     revised = False
+#     to_remove = []
+#     for v in list(domains[Xi]): 
+#         if not any(v != w for w in domains[Xj]):
+#             to_remove.append(v)
+            
+#     if to_remove:
+#         for v in to_remove:
+#             domains[Xi].remove(v)
+#         revised = True
+#     return revised
 
 
 def revise(Xi, Xj, domains):
@@ -74,7 +84,6 @@ def revise(Xi, Xj, domains):
         revised = True
     
     return revised
-
 
 def update_board_with_domains(board, domains):
     flag = False

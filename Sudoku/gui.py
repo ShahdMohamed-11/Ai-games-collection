@@ -144,7 +144,7 @@ class SudokuSolverGUI:
         backtracking_solver_fc(self.board, domains, neighbors)
         
         # Remove cells randomly (create puzzle)
-        difficulty = 60
+        difficulty = 50
         cells_to_remove = random.sample([(r, c) for r in range(9) for c in range(9)], difficulty)
         for r, c in cells_to_remove:
             self.board[r][c] = 0
@@ -171,9 +171,11 @@ class SudokuSolverGUI:
             time.sleep(0.5)
             # Run AC-3 and append the new tracking steps as a separate run
             success, new_steps = ac3_with_tracking(domains, neighbors)
+            print(f"AC-3 Run {len(self.ac3_runs) + 1}: got {len(new_steps)} steps")
             if new_steps:
                 # keep each AC-3 invocation as a separate entry (so runs are separated)
                 self.ac3_runs.append(list(new_steps))
+                print(f"Total AC-3 runs so far: {len(self.ac3_runs)}")
         
             # if not success:
             #     result = backtracking_solver_fc(self.board, domains, neighbors, callback=self._update_callback)
@@ -200,6 +202,7 @@ class SudokuSolverGUI:
         self.solution_time = time.time() - start_time
         self.update_display()
         total_ac3_steps = sum(len(run) for run in self.ac3_runs)
+        print(f"Final: Total AC-3 runs: {len(self.ac3_runs)}, Total steps: {total_ac3_steps}")
         self.status_label.config(
             text=f"Solved in {self.solution_time:.3f}s! AC-3 steps: {total_ac3_steps}",
             fg="green"
@@ -254,11 +257,15 @@ class SudokuSolverGUI:
             messagebox.showinfo("Info", "No AC-3 steps recorded. Solve a puzzle first!")
             return
         
+        print(f"show_ac3_steps: Total runs = {len(self.ac3_runs)}")
+        for i, run in enumerate(self.ac3_runs):
+            print(f"  Run {i+1}: {len(run)} steps")
+        
         steps_window = tk.Toplevel(self.root)
         steps_window.title("AC-3 Constraint Propagation Steps")
-        steps_window.geometry("500x400")
+        steps_window.geometry("700x600")
         
-        text = tk.Text(steps_window, wrap=tk.WORD, font=("Courier", 10))
+        text = tk.Text(steps_window, wrap=tk.WORD, font=("Courier", 9))
         text.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
         
         scrollbar = tk.Scrollbar(steps_window, command=text.yview)
@@ -266,28 +273,22 @@ class SudokuSolverGUI:
         text.config(yscrollcommand=scrollbar.set)
         
         total_steps = sum(len(run) for run in self.ac3_runs)
-        text.insert(tk.END, f"Total AC-3 revisions: {total_steps}\n")
-        text.insert(tk.END, "=" * 50 + "\n\n")
-        # Display runs separately so each AC-3 invocation is distinct
-        shown = 0
+        text.insert(tk.END, f"Total AC-3 Runs: {len(self.ac3_runs)}\n")
+        text.insert(tk.END, f"Total AC-3 Revisions: {total_steps}\n")
+        text.insert(tk.END, "=" * 60 + "\n\n")
+        
+        # Display ALL runs completely
         for run_idx, run in enumerate(self.ac3_runs, start=1):
-            text.insert(tk.END, f"--- AC-3 Run {run_idx}: {len(run)} revisions ---\n")
-            for step in run:
-                if shown >= 100:
-                    break
+            text.insert(tk.END, f"\n>>> AC-3 RUN {run_idx}: {len(run)} revisions <<<\n")
+            text.insert(tk.END, "-" * 60 + "\n")
+            for step_idx, step in enumerate(run, start=1):
                 xi, xj = step['arc']
                 intial_domain = step['initial_domain_Xi']
                 domain = step['domain_Xi']
-                shown += 1
-                text.insert(tk.END, f"Run {run_idx} - Revision {shown}:\n")
+                text.insert(tk.END, f"\nRevision {step_idx}:\n")
                 text.insert(tk.END, f"  Arc: {xi} -> {xj}\n")
-                text.insert(tk.END, f"  Intial Domain : {sorted(intial_domain)}\n")
-                text.insert(tk.END, f"  Domain reduced to: {sorted(domain)}\n\n")
-            if shown >= 100:
-                break
-
-        if total_steps > 100:
-            text.insert(tk.END, f"... and {total_steps - 100} more steps\n")
+                text.insert(tk.END, f"  Initial Domain: {sorted(intial_domain)}\n")
+                text.insert(tk.END, f"  Reduced to:     {sorted(domain)}\n")
         
         text.config(state=tk.DISABLED)
 

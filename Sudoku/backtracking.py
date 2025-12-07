@@ -1,13 +1,13 @@
-
 import copy
-import time
+from collections import deque
+from arc_consistency import ac3
 
 
 def backtracking_solver_fc(board, domains, neighbors, callback=None):
 
     empty = find_empty_mrv_fc(domains, board)
     if empty is None:
-        return True
+        return True  
 
     row, col = empty
     cell = (row, col)
@@ -16,27 +16,53 @@ def backtracking_solver_fc(board, domains, neighbors, callback=None):
         if value not in domains[cell]:
             continue
 
-        # try value
-        board[row][col] = value
+        # Save state
         saved_domains = copy.deepcopy(domains)
+        saved_board = copy.deepcopy(board)
+
+
+        board[row][col] = value
         domains[cell] = {value}
 
-        if forward_check(cell, value, domains, neighbors):
-            if callback:
-                # Commit this single assignment, visualize it, and return
+        # Forward checking
+        fc_ok = forward_check(cell, value, domains, neighbors)
+        if not fc_ok:
+            # undo and continue
+            board[row][col] = 0
+            domains.clear(); domains.update(saved_domains)
+            continue
+
+        # Re-run arc consistency after the assignment
+        ac3_ok = ac3(domains, neighbors)
+        if not ac3_ok:
+            # assignment leads to inconsistency -> undo and continue
+            board[row][col] = 0
+            domains.clear(); domains.update(saved_domains)
+            continue
+
+        if callback:
+
+            test_board = copy.deepcopy(board)
+            test_domains = copy.deepcopy(domains)
+            solvable = backtracking_solver_fc(test_board, test_domains, neighbors, callback=None)
+            if solvable:
                 callback(board)
                 return True
+            else:
+                # Undo and try next value
+                board[row][col] = 0
+                domains.clear(); domains.update(saved_domains)
+                continue
+        else:
 
-            # No callback => continue full recursive search
-            if backtracking_solver_fc(board, domains, neighbors, callback):
+            if backtracking_solver_fc(board, domains, neighbors, callback=None):
                 return True
+            # undo and try next value
+            board[row][col] = 0
+            domains.clear(); domains.update(saved_domains)
+            
+            
 
-        # undo and try next value
-        board[row][col] = 0
-        domains.clear()
-        domains.update(saved_domains)
-
-    return False
 
 
 def find_empty_mrv_fc(domains, board):
@@ -66,6 +92,7 @@ def lcv_order(cell, domains, neighbors):
     
     counts.sort()
     return [v for _, v in counts]
+
 
 
 def forward_check(cell, value, domains, neighbors):
