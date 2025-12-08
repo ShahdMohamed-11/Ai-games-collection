@@ -1,4 +1,3 @@
-
 import tkinter as tk
 from tkinter import ttk, messagebox
 import copy
@@ -162,10 +161,20 @@ class SudokuSolverGUI:
         domains, neighbors = build_csp(self.board)
         
         # Apply AC-3
+        import backtracking
+        backtracking.ac3_steps_global = []
+        backtracking.ac3_run_counter = 0  # Reset run counter
+
         self.status_label.config(text="Running AC-3...", fg="blue")
         self.root.update()
         
+        # Initial AC-3 run (Run 1)
+        backtracking.ac3_run_counter = 1
         success, self.ac3_steps = ac3_with_tracking(domains, neighbors)
+        for s in self.ac3_steps:
+            s["run"] = 1
+        backtracking.ac3_steps_global.extend(self.ac3_steps)
+
         
         if not success:
             messagebox.showerror("Error", "Puzzle is unsolvable!")
@@ -185,8 +194,13 @@ class SudokuSolverGUI:
         
         self.solution_time = time.time() - start_time
         self.update_display()
+        
+        # Count total AC-3 runs
+        total_runs = backtracking.ac3_run_counter
+        total_steps = len(backtracking.ac3_steps_global)
+        
         self.status_label.config(
-            text=f"Solved in {self.solution_time:.3f}s! AC-3 steps: {len(self.ac3_steps)}",
+            text=f"Solved in {self.solution_time:.3f}s! AC-3 runs: {total_runs}, Total steps: {total_steps}",
             fg="green"
         )
     
@@ -233,7 +247,8 @@ class SudokuSolverGUI:
     
     def show_ac3_steps(self):
         """Display AC-3 constraint propagation steps"""
-        if not self.ac3_steps:
+        import backtracking
+        if not backtracking.ac3_steps_global:
             messagebox.showinfo("Info", "No AC-3 steps recorded. Solve a puzzle first!")
             return
         
@@ -248,18 +263,20 @@ class SudokuSolverGUI:
         scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
         text.config(yscrollcommand=scrollbar.set)
         
-        text.insert(tk.END, f"Total AC-3 revisions: {len(self.ac3_steps)}\n")
+        text.insert(tk.END, f"Total AC-3 runs: {backtracking.ac3_run_counter}\n")
+        text.insert(tk.END, f"Total AC-3 revisions: {len(backtracking.ac3_steps_global)}\n")
         text.insert(tk.END, "=" * 50 + "\n\n")
         
-        for i, step in enumerate(self.ac3_steps[:100]):
+        for i, step in enumerate(backtracking.ac3_steps_global[:100]):
             xi, xj = step['arc']
             domain = step['domain_Xi']
-            text.insert(tk.END, f"Step {i+1}:\n")
+            run_num = step.get('run', 'N/A')
+            text.insert(tk.END, f"Step {i+1} (Run {run_num}):\n")
             text.insert(tk.END, f"  Arc: {xi} -> {xj}\n")
             text.insert(tk.END, f"  Domain reduced to: {sorted(domain)}\n\n")
         
-        if len(self.ac3_steps) > 100:
-            text.insert(tk.END, f"... and {len(self.ac3_steps) - 100} more steps\n")
+        if len(backtracking.ac3_steps_global) > 100:
+            text.insert(tk.END, f"... and {len(backtracking.ac3_steps_global) - 100} more steps\n")
         
         text.config(state=tk.DISABLED)
 

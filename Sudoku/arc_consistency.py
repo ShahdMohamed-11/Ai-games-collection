@@ -5,8 +5,7 @@ from collections import deque
 def ac3_with_tracking(domains, neighbors):
 
     ac3_steps = []
-    queue = deque()
-    
+    queue = deque()    
 
     for Xi in domains.keys():
         for Xj in neighbors[Xi]:
